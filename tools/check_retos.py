@@ -19,7 +19,7 @@ for u, name in [("/pos", "pos"), ("/pedidos", "internacionales"), ("/clientes", 
 
 pos = s.get(B + "/pos", timeout=25).text
 ok("POS renombrado 'POS Web con Facturacion Electronica'", "POS Web con Facturacion Electronica" in pos)
-ok("Flujos A y B visibles en POS", "Cobro previo (flujo A)" in pos and "flujo B" in pos)
+ok("Opciones A y B visibles en POS", "Opcion A - Cobro previo" in pos and "Opcion B - Facturacion previa" in pos)
 ok("Modal con Descargar QR / Imprimir QR", "btnQrDl" in pos and "imprimirQR" in pos)
 ok("Favicon referenciado en POS", "favicon.ico" in pos)
 

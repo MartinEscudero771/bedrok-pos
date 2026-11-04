@@ -286,12 +286,14 @@ def register(app):
             pay_inicial = {"CREDITO": "CREDITO", "EFECTIVO": "EFECTIVO"}.get(metodo_pago, "SIN_QR")
             fecha_credito = (date.today() + timedelta(days=dias_credito)) if metodo_pago == "CREDITO" else None
             fecha_credito_iso = fecha_credito.isoformat() if fecha_credito else None
+            estado_inicial = "COBRO_PREVIO" if metodo_pago == "PREVIO" else "PENDIENTE"
             cursor.execute("""
                 INSERT INTO facturas
                 (id_cliente, codigo_referencia, fecha_emision, subtotal, total_iva, total,
                  estado, ambiente, metodo_pago, pay_status, fecha_credito)
-                VALUES (%s,%s,NOW(),%s,%s,%s,'PENDIENTE','SANDBOX',%s,%s,%s)
-            """, (id_cliente, referencia, subtotal, total_iva, total, metodo_pago, pay_inicial, fecha_credito))
+                VALUES (%s,%s,NOW(),%s,%s,%s,%s,'SANDBOX',%s,%s,%s)
+            """, (id_cliente, referencia, subtotal, total_iva, total, estado_inicial,
+                  metodo_pago, pay_inicial, fecha_credito))
             id_factura = cursor.lastrowid
             for d in detalles:
                 cursor.execute("""
@@ -300,8 +302,9 @@ def register(app):
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
                 """, (id_factura, d["id_producto"], d["cantidad"], d["precio"], d["iva"],
                       d["valor_iva"], d["subtotal"], d["total"]))
-                cursor.execute("UPDATE productos SET stock = stock - %s WHERE id_producto=%s",
-                               (d["cantidad"], d["id_producto"]))
+                if metodo_pago != "PREVIO":
+                    cursor.execute("UPDATE productos SET stock = stock - %s WHERE id_producto=%s",
+                                   (d["cantidad"], d["id_producto"]))
             conexion.commit()
         except ValueError as error:
             conexion.rollback()

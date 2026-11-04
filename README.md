@@ -88,6 +88,8 @@ Tienda_bedrok/
 │       ├── pagos.py          # guardar-factura (B), cobro previo (A),
 │       │                     # api/recaudo, webhook, conciliacion, salud
 │       └── pedidos.py        # pedidos internacionales USD (doble moneda)
+├── db/
+│   └── bedrok_pos.sql        # dump completo MySQL/MariaDB
 ├── templates/                # base (sidebar) + vistas + ticket 80mm
 ├── static/css | js | img     # design system, sprite SVG, favicon Pillow
 ├── docs/img/banner.svg       # banner del repo

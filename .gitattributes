@@ -1,0 +1,18 @@
+# Literales de Python
+*.py text
+*.html text
+*.css text
+*.js text
+*.md text
+*.svg text
+*.csv text
+*.inv text
+
+# Imagenes binarias
+*.png binary
+*.ico binary
+
+# Detectar lenguajes correctamente (Python siempre primera clase)
+*.py linguist-language=Python
+*.jinja linguist-language=HTML
+*.svg linguist-vendored=false

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#171c2b"/>
+      <stop offset="1" stop-color="#232a45"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7a6bff"/>
+      <stop offset=".55" stop-color="#5a4fe0"/>
+      <stop offset="1" stop-color="#1fb6c9"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="300" fill="url(#bg)"/>
+  <circle cx="1100" cy="40" r="180" fill="#5a4fe0" opacity=".08"/>
+  <circle cx="80" cy="280" r="140" fill="#1fb6c9" opacity=".08"/>
+
+  <g transform="translate(64 74)">
+    <rect width="152" height="152" rx="34" fill="url(#brand)"/>
+    <path d="M53 38h46v66l-7.4-4.6-7.4 4.6-7.4-4.6-7.4 4.6-7.4-4.6L53 104z" fill="#fff"/>
+    <rect x="61" y="51" width="23" height="6" rx="3" fill="#5a4fe0"/>
+    <rect x="61" y="63" width="28" height="6" rx="3" fill="#c9c5ff"/>
+    <g fill="#1fb6c9">
+      <rect x="61" y="75" width="7" height="7" rx="1.6"/>
+      <rect x="73" y="75" width="7" height="7" rx="1.6"/>
+      <rect x="61" y="87" width="7" height="7" rx="1.6" opacity=".4"/>
+      <rect x="73" y="87" width="7" height="7" rx="1.6"/>
+    </g>
+    <circle cx="102" cy="100" r="15" fill="#fff"/>
+    <path d="M95 100l4.4 4.4 8-8.6" stroke="#0f7a55" stroke-width="4.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <text x="252" y="118" font-family="Segoe UI, Inter, sans-serif" font-size="52" font-weight="700" fill="#ffffff" letter-spacing="-.5">Bedrok POS</text>
+  <text x="253" y="164" font-family="Segoe UI, Inter, sans-serif" font-size="26" fill="#8fd7de">POS Web con Facturacion Electronica</text>
+  <text x="253" y="208" font-family="Consolas, monospace" font-size="20" fill="#aaafc4">Factus API (DIAN) + Factus Pay (Bre-B) + Doble moneda USD</text>
+  <text x="253" y="240" font-family="Consolas, monospace" font-size="20" fill="#6f7793">Flask / Python 3.13 / MySQL - Libre (MIT)</text>
+
+  <g font-family="Segoe UI, Inter, sans-serif" font-weight="600" font-size="13" fill="#fff">
+    <rect x="253" y="256" width="96" height="24" rx="12" fill="#5a4fe0"/><text x="270" y="272">Flujo A</text>
+    <rect x="357" y="256" width="96" height="24" rx="12" fill="#2c3352"/><text x="374" y="272">Flujo B</text>
+    <rect x="461" y="256" width="120" height="24" rx="12" fill="#2c3352"/><text x="478" y="272">Nota credito</text>
+    <rect x="589" y="256" width="150" height="24" rx="12" fill="#2c3352"/><text x="606" y="272">Conciliacion RT</text>
+    <rect x="747" y="256" width="140" height="24" rx="12" fill="#2c3352"/><text x="764" y="272">Ticket 80mm</text>
+  </g>
+</svg>

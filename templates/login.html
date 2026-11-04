@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar sesion | Bedrok</title>
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/estilos.css') }}">
+</head>
+<body>
+<div class="login-wrap">
+    <div class="login-card">
+        <a class="brand login-brand" href="{{ url_for('login') }}">
+            <img class="brand-logo" src="{{ url_for('static', filename='img/logo.svg') }}" alt="Bedrok">
+            <span><strong>bedrok</strong><small>POS + Facturacion</small></span>
+        </a>
+        <h2>Ingrese sus credenciales</h2>
+        <p>Acceso al panel de venta del punto de venta.</p>
+        {% if error %}<div class="mensaje error login-error">{{ error }}</div>{% endif %}
+        <form method="POST" class="login-form">
+            <div class="field">
+                <label for="usuario">Usuario</label>
+                <input id="usuario" name="usuario" value="{{ usuario }}" autocomplete="username" required>
+            </div>
+            <div class="field">
+                <label for="clave">Contrasena</label>
+                <input id="clave" name="clave" type="password" autocomplete="current-password" required>
+            </div>
+            <button type="submit" class="login-btn"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-lock"></use></svg> Iniciar sesion</button>
+            <p class="hint login-hint">Dependencia del reto: credenciales de acceso rapido <code>admin / admin</code>.</p>
+        </form>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% set nav = 'facturar' %}
+{% block title %}Facturar{% endblock %}
+{% block head %}
+<script src="{{ url_for('static', filename='js/facturas.js') }}" defer></script>
+{% endblock %}
+{% block content %}
+<div class="page-head">
+    <div><p class="eyebrow">Venta electronica</p><h1>Nueva factura</h1><p>Selecciona un cliente y agrega los productos para generar su comprobante.</p></div>
+    <div class="hero-icon"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-receipt"></use></svg></div>
+</div>
+{% with mensajes = get_flashed_messages(with_categories=true) %}
+    {% for categoria, mensaje in mensajes %}<div class="mensaje {{ categoria }}" role="alert">{{ mensaje }}</div>{% endfor %}
+{% endwith %}
+<form id="formularioFactura">
+    <section class="section-card" style="margin-bottom:16px">
+        <div class="section-heading"><div><h2>Datos de la venta</h2><p>Elige quien compra y que productos lleva.</p></div><span class="eyebrow">01 / Detalle</span></div>
+        <div class="form-grid">
+            <div class="field field--wide"><label for="cliente">Seleccionar cliente</label><select id="cliente" name="cliente" required><option value="">Selecciona un cliente</option>{% for cliente in clientes %}<option value="{{ cliente.id_cliente }}">{{ cliente.nombres }} - {{ cliente.numero_documento }}</option>{% endfor %}</select></div>
+            <div class="field field--wide"><label for="producto">Seleccionar producto</label><select id="producto"><option value="">Selecciona un producto</option>{% for producto in productos %}<option value="{{ producto.id_producto }}" data-nombre="{{ producto.nombre }}" data-precio="{{ producto.precio }}" data-iva="{{ producto.porcentaje_iva }}" data-stock="{{ producto.stock }}">{{ producto.nombre }} - ${{ producto.precio|cop }} - Stock: {{ producto.stock }}</option>{% endfor %}</select></div>
+            <div class="field"><label for="cantidad">Cantidad</label><input type="number" id="cantidad" min="1" step="1" value="1" required></div>
+        </div>
+        <div class="form-actions"><button type="button" onclick="agregarProducto()"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-plus"></use></svg> Agregar al carrito</button></div>
+    </section>
+    <section class="section-card" style="margin-bottom:16px">
+        <div class="section-heading"><div><h2>Detalle de la factura</h2><p>Revisa los productos antes de guardar.</p></div><span class="eyebrow">02 / Carrito</span></div>
+        <div class="table-wrap"><table><thead><tr><th>Producto</th><th>Cantidad</th><th>Precio</th><th>IVA</th><th>Total</th></tr></thead><tbody id="detalleFactura"><tr><td class="empty-state" colspan="5">Todavia no has agregado productos.</td></tr></tbody></table></div>
+    </section>
+    <section class="section-card">
+        <div class="section-heading"><div><h2>Resumen</h2><p>Totales calculados automaticamente.</p></div><span class="eyebrow">03 / Confirmacion</span></div>
+        <div class="summary"><p><span>Subtotal</span><strong>$<span id="subtotal">0.00</span></strong></p><p><span>IVA</span><strong>$<span id="ivaTotal">0.00</span></strong></p><h2><span>Total</span><strong>$<span id="total">0.00</span></strong></h2></div>
+        <div class="form-grid" style="margin-top:14px">
+            <div class="field"><label for="metodo_pago_ui">Metodo de cobro</label><select id="metodo_pago_ui" name="metodo_pago_ui"><option value="EFECTIVO">Efectivo</option><option value="BREB">QR Bre-B (Factus Pay)</option></select></div>
+            <div class="field"><label for="expiration">Vigencia del QR Bre-B</label><select id="expiration" name="expiration"><option value="900">15 minutos</option><option value="7200">2 horas</option><option value="86400" selected>24 horas</option></select></div>
+            <div class="field" id="montoWrap"><label for="monto_recibido">Efectivo recibido (COP)</label><input type="number" id="monto_recibido" min="0" step="0.01" placeholder="0.00" inputmode="decimal"></div>
+        </div>
+        <p class="hint">Minimo $10.000 COP para generar QR (validado en sandbox). El ticket incluye QR de pago y QR/link de verificacion.</p>
+        <div class="form-actions"><button type="submit">Guardar factura <svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-arrow"></use></svg></button></div>
+        <div id="payResult" style="display:none;margin-top:14px"></div>
+    </section>
+</form>
+{% endblock %}

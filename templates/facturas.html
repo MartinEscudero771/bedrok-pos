@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% set nav = 'historial' %}
+{% block title %}Historial{% endblock %}
+{% block head %}
+<script src="{{ url_for('static', filename='js/historial.js') }}" defer></script>
+{% endblock %}
+{% block content %}
+<div class="page-head">
+    <div><p class="eyebrow">Control financiero</p><h1>Historial de facturas</h1><p>Consulta el estado y descarga los comprobantes electronicos de tu tienda.</p></div>
+    <div class="hero-icon"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-history"></use></svg></div>
+</div>
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}<div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}" role="alert">{{ message }}</div>{% endfor %}
+{% endwith %}
+<section class="section-card" style="margin-bottom:16px">
+    <div class="section-heading">
+        <div><h2>Conciliacion en tiempo real (hoy)</h2><p>Operacion del dia: ventas, DIAN, recaudos Bre-B y flechas de control.</p></div>
+        <div class="acciones">
+            <button class="btn btn-sm btn-secondary" onclick="refrescarConciliacion(this)"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-history"></use></svg> Refrescar</button>
+            <button class="btn btn-sm btn-secondary" onclick="conciliarAhora(this)"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-check"></use></svg> Conciliar con Factus Pay</button>
+        </div>
+    </div>
+    <div class="stats-grid" id="statsConci">
+        <div class="stat"><span class="stat-n" id="st-ventas">--</span><span class="stat-l">Ventas hoy</span></div>
+        <div class="stat"><span class="stat-n" id="st-validadas">--</span><span class="stat-l">DIAN validadas</span></div>
+        <div class="stat"><span class="stat-n" id="st-facturado">--</span><span class="stat-l">Facturado hoy</span></div>
+        <div class="stat"><span class="stat-n" id="st-pagos">--</span><span class="stat-l">Pagos Bre-B hoy</span></div>
+        <div class="stat"><span class="stat-n" id="st-recaudado">--</span><span class="stat-l">Recaudado hoy</span></div>
+        <div class="stat"><span class="stat-n" id="st-por">--</span><span class="stat-l">Por facturar (flujo A)</span></div>
+    </div>
+</section>
+<section class="section-card">
+    <div class="section-heading">
+        <div><h2>Facturas emitidas</h2><p>Seguimiento de documentos y pagos generados.</p></div>
+        <div class="acciones">
+            <a href="{{ url_for('pos') }}" class="btn btn-secondary"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-pos"></use></svg> POS</a>
+            <a href="{{ url_for('crear_factura') }}" class="btn"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-plus"></use></svg> Nueva factura</a>
+        </div>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>Ref. local</th><th>N factura</th><th>Cliente</th><th>Fecha</th><th>Total</th><th>Estado API</th><th>Pago Bre-B</th><th>CUFE / detalle</th><th>Acciones</th></tr></thead><tbody>
+        {% if facturas %}{% for f in facturas %}<tr>
+            <td><code>{{ f.codigo_referencia }}</code><br><small class="text-muted">{{ f.metodo_pago or 'EFECTIVO' }}</small></td>
+            <td><strong>{{ f.numero_factura or 'N/A' }}</strong></td>
+            <td>{{ f.cliente_nombre }}<br><small class="text-muted">Doc: {{ f.numero_documento }}</small></td>
+            <td>{{ f.fecha_emision }}</td>
+            <td><strong>$ {{ f.total|cop }}</strong></td>
+            <td>{% if f.estado == 'VALIDADA' %}<span class="badge badge-success">VALIDADA</span>{% else %}<span class="badge badge-warning">PENDIENTE</span>{% endif %}<br><small class="text-muted">{{ f.ambiente }}</small></td>
+            <td>{% if f.pay_status == 'PAGADO' %}<span class="badge badge-success">PAGADO Bre-B</span>{% elif f.pay_status == 'LISTO_QR' %}<span class="badge badge-warning">QR LISTO</span>{% elif f.pay_status == 'EFECTIVO' %}<span class="badge badge-info">EFECTIVO</span>{% elif f.pay_status == 'ERROR_PAY' %}<span class="badge badge-danger">ERROR PAY</span>{% else %}<span class="badge badge-muted">SIN QR</span>{% endif %}{% if f.pay_reference %}<br><small class="text-muted"><code>{{ f.pay_reference }}</code></small>{% endif %}</td>
+            <td>{% if f.cufe %}<span class="text-success" style="font-size:.78rem;word-break:break-all" title="{{ f.cufe }}">{{ f.cufe[:25] }}...</span>{% else %}<span class="text-muted">Sin CUFE</span>{% endif %}</td>
+            <td>
+                <div class="acciones">
+                    <a href="{{ url_for('ticket', id_factura=f.id_factura) }}" class="btn btn-sm" target="_blank" title="Ticket termico 80mm"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-print"></use></svg> Ticket</a>
+                    {% if f.estado == 'VALIDADA' and f.numero_factura %}
+                    <a href="{{ url_for('descargar_pdf', id_factura=f.id_factura) }}" class="btn btn-sm btn-danger" target="_blank" title="Descargar PDF"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-download"></use></svg> PDF</a>
+                    <form method="POST" action="{{ url_for('nota_credito', id_factura=f.id_factura) }}" style="display:inline" onsubmit="return confirm('Anular la factura {{ f.numero_factura }} con una nota credito?')">
+                        <button class="btn btn-sm btn-ghost" title="Opcional del reto: anular factura validada"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-x"></use></svg> Nota credito</button>
+                    </form>
+                    {% else %}
+                    <button class="btn btn-sm btn-secondary" disabled><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-download"></use></svg> PDF</button>
+                    {% endif %}
+                    {% if f.pay_reference and f.pay_status in ['LISTO_QR', 'ERROR_PAY', 'PAGADO'] %}
+                    <button class="btn btn-sm btn-ghost" onclick="verQR('{{ f.pay_reference }}', this)"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-qr"></use></svg> QR</button>
+                    {% endif %}
+                </div>
+            </td>
+        </tr>{% endfor %}{% else %}<tr><td colspan="9" class="empty-state">No hay ventas todavia. Ve al <a href="{{ url_for('pos') }}">POS</a>.</td></tr>{% endif %}
+    </tbody></table></div>
+    <div id="qrBox" style="display:none;margin-top:18px;text-align:center;padding:18px;border:1px solid var(--line);border-radius:8px">
+        <h2>QR Bre-B <code id="qrRef"></code></h2>
+        <img id="qrImg" style="max-width:280px;border:1px solid var(--line);border-radius:6px" alt="QR Bre-B">
+        <p><b>Estado:</b> <span id="qrSt"></span> / <b>Llave:</b> <code id="qrKey"></code></p>
+        <p><small id="qrExp" class="text-muted"></small></p>
+    </div>
+</section>
+{% endblock %}

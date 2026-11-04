@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Bedrok{% endblock %} | Bedrok POS</title>
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/estilos.css') }}">
+    <script src="{{ url_for('static', filename='js/ui.js') }}" defer></script>
+    {% block head %}{% endblock %}
+</head>
+<body>
+<div class="layout">
+    <aside class="sidebar">
+        <a class="brand" href="{{ url_for('pos') }}">
+            <img class="brand-logo" src="{{ url_for('static', filename='img/logo.svg') }}" alt="Bedrok">
+            <span><strong>bedrok</strong><small>POS + Facturacion</small></span>
+        </a>
+        <nav aria-label="Modulos">
+            <a {% if nav == 'pos' %}class="active"{% endif %} href="{{ url_for('pos') }}"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-pos"></use></svg> POS</a>
+            <a {% if nav == 'pedidos' %}class="active"{% endif %} href="{{ url_for('pedidos') }}"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-globe"></use></svg> Internacionales</a>
+            <a {% if nav == 'clientes' %}class="active"{% endif %} href="{{ url_for('clientes') }}"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-users"></use></svg> Clientes</a>
+            <a {% if nav == 'productos' %}class="active"{% endif %} href="{{ url_for('productos') }}"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-box"></use></svg> Productos</a>
+            <a {% if nav == 'facturar' %}class="active"{% endif %} href="{{ url_for('crear_factura') }}"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-receipt"></use></svg> Facturar</a>
+            <a {% if nav == 'historial' %}class="active"{% endif %} href="{{ url_for('listar_facturas') }}"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-history"></use></svg> Historial</a>
+        </nav>
+        <div class="side-foot">
+            <div class="side-foot-user"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-users"></use></svg> admin</div>
+            <a href="{{ url_for('logout') }}"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-logout"></use></svg> Cerrar sesion</a>
+            <a href="https://pay-api-sandbox.factus.com.co/simulator" target="_blank">Simulador de pago Bre-B</a>
+        </div>
+    </aside>
+    <main class="content">
+        <div class="content-inner">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+</div>
+{% block scripts %}{% endblock %}
+</body>
+</html>

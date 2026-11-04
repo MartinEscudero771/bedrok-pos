@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POS Web con Facturacion Electronica | Bedrok</title>
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/estilos.css') }}">
+    <script src="{{ url_for('static', filename='js/ui.js') }}" defer></script>
+</head>
+<body>
+<div class="layout">
+    <aside class="sidebar">
+        <a class="brand" href="{{ url_for('pos') }}">
+            <img class="brand-logo" src="{{ url_for('static', filename='img/logo.svg') }}" alt="Bedrok">
+            <span><strong>bedrok</strong><small>POS + Facturacion</small></span>
+        </a>
+        <nav aria-label="Modulos">
+            <a class="active" href="{{ url_for('pos') }}"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-pos"></use></svg> POS</a>
+            <a href="{{ url_for('pedidos') }}"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-globe"></use></svg> Internacionales</a>
+            <a href="{{ url_for('clientes') }}"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-users"></use></svg> Clientes</a>
+            <a href="{{ url_for('productos') }}"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-box"></use></svg> Productos</a>
+            <a href="{{ url_for('crear_factura') }}"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-receipt"></use></svg> Facturar</a>
+            <a href="{{ url_for('listar_facturas') }}"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-history"></use></svg> Historial</a>
+        </nav>
+        <div class="side-foot">
+            <div class="side-foot-user"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-users"></use></svg> admin</div>
+            <a href="{{ url_for('logout') }}"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-logout"></use></svg> Cerrar sesion</a>
+            <a href="https://pay-api-sandbox.factus.com.co/simulator" target="_blank">Simulador de pago Bre-B</a>
+        </div>
+    </aside>
+    <main class="content">
+        <div class="content-inner">
+            <div class="page-head">
+                <div>
+                    <p class="eyebrow">Punto de venta</p>
+                    <h1>POS Web con Facturacion Electronica</h1>
+                </div>
+                <div class="acciones">
+                    <a class="btn btn-ghost" href="{{ url_for('listar_facturas') }}"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-history"></use></svg> Historial</a>
+                </div>
+            </div>
+
+            <div class="pos-grid">
+                <section class="section-card">
+                    <div class="section-heading">
+                        <div><h2>Catalogo</h2><p>Busca y anade productos a la venta.</p></div>
+                        <span class="eyebrow">01 / Catalogo</span>
+                    </div>
+                    <div class="field">
+                        <label for="buscar">Buscar producto</label>
+                        <div class="search-box">
+                            <svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-search"></use></svg>
+                            <input id="buscar" placeholder="Nombre o codigo (ej: arroz, BED-001)" oninput="filtrarProductos(this.value)">
+                        </div>
+                    </div>
+                    <div class="prod-grid" id="gridProductos">
+                        {% for p in productos %}
+                        <div class="prod-card" data-search="{{ (p.nombre ~ ' ' ~ p.codigo_referencia)|lower }}">
+                            <b>{{ p.nombre }}</b>
+                            <small>{{ p.codigo_referencia }} / Stock: {{ p.stock }}</small>
+                            <small>${{ p.precio|cop }} / IVA {{ p.porcentaje_iva }}%</small>
+                            <div class="row">
+                                <input type="number" min="1" value="1" id="cant-{{ p.id_producto }}">
+                                <button type="button"
+                                        data-add
+                                        data-id="{{ p.id_producto }}"
+                                        data-nombre="{{ p.nombre }}"
+                                        data-precio="{{ p.precio }}"
+                                        data-iva="{{ p.porcentaje_iva }}"
+                                        data-stock="{{ p.stock }}">
+                                    <svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-plus"></use></svg> Anadir
+                                </button>
+                            </div>
+                        </div>
+                        {% else %}
+                        <p>No hay productos. <a href="{{ url_for('productos') }}">Registra productos</a></p>
+                        {% endfor %}
+                    </div>
+                </section>
+
+                <section class="section-card">
+                    <div class="section-heading">
+                        <div><h2>Venta actual</h2><p>Cliente, carrito y cobro.</p></div>
+                        <span class="eyebrow">02 / Cobro</span>
+                    </div>
+                    <form id="posForm" onsubmit="return false;">
+                    <div class="field">
+                        <label for="cliente">Cliente</label>
+                        <select id="cliente">
+                            <option value="">Selecciona cliente</option>
+                            {% for c in clientes %}
+                            <option value="{{ c.id_cliente }}">{{ c.nombres }} / {{ c.numero_documento }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="table-wrap"><table>
+                        <thead><tr><th>Producto</th><th>Cant</th><th>Total</th><th></th></tr></thead>
+                        <tbody id="carritoBody"><tr><td colspan="4" class="empty-state">Carrito vacio</td></tr></tbody>
+                    </table></div>
+                    <div class="summary">
+                        <p><span>Subtotal</span><strong>$<span id="subtotal">0.00</span></strong></p>
+                        <p><span>IVA</span><strong>$<span id="ivaTotal">0.00</span></strong></p>
+                        <h2><span>Total</span><strong>$<span id="total">0.00</span></strong></h2>
+                    </div>
+                    <div class="field" style="margin-top:10px">
+                        <label>Metodo de cobro / flujo</label>
+                        <div class="pay-opts">
+                            <label><input type="radio" name="metodo" value="EFECTIVO" checked> <svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-cash"></use></svg> Efectivo</label>
+                            <label><input type="radio" name="metodo" value="BREB"> <svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-qr"></use></svg> QR Bre-B (flujo B)</label>
+                            <label><input type="radio" name="metodo" value="PREVIO"> <svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-globe"></use></svg> Cobro previo (flujo A)</label>
+                        </div>
+                        <p class="hint">Flujo A: recaudo primero y la factura DIAN se emite sola al confirmar el pago. Flujo B: factura primero y luego se crea el QR.</p>
+                    </div>
+                    <div class="field" id="cashWrap">
+                        <label for="monto_recibido">Efectivo recibido</label>
+                        <input type="number" id="monto_recibido" min="0" step="0.01" placeholder="0.00" inputmode="decimal">
+                        <div class="cambio-box" id="cambioBox" style="display:none">
+                            <span id="cambioLabel">Cambio</span>
+                            <strong id="cambioVal">$0.00</strong>
+                        </div>
+                    </div>
+                    <div class="field" id="expWrap" style="display:none">
+                        <label for="expiration">Vigencia del QR</label>
+                        <select id="expiration">
+                            <option value="900">15 minutos</option>
+                            <option value="7200">2 horas</option>
+                            <option value="86400" selected>24 horas</option>
+                        </select>
+                        <p class="hint">El QR Bre-B exige minimo $10.000 COP (validado en sandbox).</p>
+                    </div>
+                    <div class="form-actions" style="justify-content:stretch;flex-direction:column;margin-top:12px">
+                        <button type="button" id="btnCobrar" onclick="cobrarPOS()"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-check"></use></svg> Cobrar y facturar</button>
+                        <button type="button" class="btn-secondary btn" onclick="limpiarPOS()">Limpiar venta</button>
+                    </div>
+                    </form>
+                </section>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div id="qrModal">
+    <div class="qr-card">
+        <p class="eyebrow">Factus Pay / Bre-B</p>
+        <h2>Paga con tu banco</h2>
+        <p id="qrRef" class="text-muted"></p>
+        <img id="qrImg" alt="QR Bre-B Factus Pay">
+        <p><b>Llave Bre-B:</b> <code id="qrKey"></code></p>
+        <p><b>Total:</b> $<span id="qrTotal"></span> / <span id="qrEstado" class="qr-status qs-pend">Esperando pago</span></p>
+        <p><small id="qrExp" class="text-muted"></small></p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:10px">
+            <a id="btnTicket" class="btn" target="_blank" href="#"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-print"></use></svg> Ticket</a>
+            <a id="btnQrDl" class="btn btn-secondary" download="QR-Bre-B.png" href="#"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-download"></use></svg> Descargar QR</a>
+            <button class="btn btn-secondary" onclick="imprimirQR()"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-print"></use></svg> Imprimir QR</button>
+            <a id="btnPdf" class="btn btn-secondary" target="_blank" href="#"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-download"></use></svg> PDF</a>
+            <button class="btn btn-secondary" onclick="cerrarQR()">Nueva venta</button>
+        </div>
+        <p><small class="text-muted">El estado se actualiza cada 4s. Simula el pago en el <a target="_blank" href="https://pay-api-sandbox.factus.com.co/simulator">simulador sandbox</a>.</small></p>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/pos.js') }}" defer></script>
+</body>
+</html>

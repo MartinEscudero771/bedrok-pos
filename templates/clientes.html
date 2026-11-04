@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% set nav = 'clientes' %}
+{% block title %}Clientes{% endblock %}
+{% block content %}
+<div class="page-head">
+    <div><p class="eyebrow">Directorio comercial</p><h1>Clientes</h1><p>Administra los datos de las personas y empresas que compran en tu tienda.</p></div>
+    <div class="hero-icon"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-users"></use></svg></div>
+</div>
+{% with mensajes = get_flashed_messages(with_categories=true) %}
+    {% for categoria, mensaje in mensajes %}<div class="mensaje {{ categoria }}" role="alert">{{ mensaje }}</div>{% endfor %}
+{% endwith %}
+<section class="section-card" style="margin-bottom:16px">
+    <div class="section-heading"><div><h2>Nuevo cliente</h2><p>Completa la informacion para registrarlo.</p></div><span class="eyebrow">01 / Registro</span></div>
+    <form method="POST" autocomplete="on">
+        <div class="form-grid">
+            <div class="field"><label for="tipo_documento">Tipo de documento</label><select id="tipo_documento" name="tipo_documento" required><option value="">Selecciona una opcion</option><option value="13">Cedula de ciudadania</option><option value="31">NIT</option><option value="22">Cedula de extranjeria</option><option value="41">Pasaporte</option></select></div>
+            <div class="field"><label for="numero_documento">Numero de documento</label><input id="numero_documento" type="text" name="numero_documento" required></div>
+            <div class="field field--wide"><label for="nombres">Nombre completo o razon social</label><input id="nombres" type="text" name="nombres" required></div>
+            <div class="field"><label for="direccion">Direccion</label><input id="direccion" type="text" name="direccion"></div>
+            <div class="field"><label for="telefono">Telefono</label><input id="telefono" type="text" name="telefono"></div>
+            <div class="field field--wide"><label for="correo">Correo electronico</label><input id="correo" type="email" name="correo"></div>
+        </div>
+        <div class="form-actions"><button type="submit"><svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-plus"></use></svg> Registrar cliente</button></div>
+    </form>
+</section>
+<section class="section-card">
+    <div class="section-heading"><div><h2>Clientes registrados</h2><p>Consulta rapida de tu base de clientes.</p></div><span class="badge badge-success">{{ clientes|length }} registrados</span></div>
+    <div class="table-wrap"><table><thead><tr><th>Documento</th><th>Nombre</th><th>Telefono</th><th>Correo</th><th>Acciones</th></tr></thead><tbody>
+        {% for cliente in clientes %}<tr><td><code>{{ cliente.numero_documento }}</code></td><td><strong>{{ cliente.nombres }}</strong></td><td>{{ cliente.telefono or '-' }}</td><td>{{ cliente.correo or '-' }}</td><td><a class="btn btn-sm btn-ghost" href="{{ url_for('crear_factura') }}#cliente">Facturar</a></td></tr>
+        {% else %}<tr><td colspan="5" class="empty-state">Todavia no hay clientes registrados.</td></tr>{% endfor %}
+    </tbody></table></div>
+</section>
+{% endblock %}

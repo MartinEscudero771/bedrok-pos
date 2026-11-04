@@ -31,7 +31,7 @@ ok("Historial: panel conciliacion tiempo real", "statsConci" in hist and "Concil
 ok("Historial: boton Nota credito en validadas", "nota-credito" in hist)
 
 ui = io.open("static/js/ui.js", encoding="utf-8").read()
-ok("Barra de progreso + texto de segundos esperando", "showProgress" in ui and "progress-bar" in ui and "segundos" in ui)
+ok("Barra de progreso + texto de segundos esperando", "showProgress" in ui and "progress-bar" in ui and "s restantes" in ui)
 
 # 2. Flujo A completo end-to-end (recaudo -> pago simulado -> factura emitida)
 print()

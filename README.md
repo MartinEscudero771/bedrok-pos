@@ -107,6 +107,25 @@ python run.py
 # login con admin / admin, luego en http://127.0.0.1:5000/pos
 ```
 
+## Base de datos (ruta en el proyecto)
+
+El dump completo del esquema + datos de demostración vive en:
+
+```
+db/bedrok_pos.sql
+```
+
+Se crea/actualiza automaticamente en el arranque (`init_db()` idemponente), pero si prefieres
+partir del backup:
+
+```bash
+mysql -u root -p < db\bedrok_pos.sql
+# dentro del cliente:  SOURCE db/bedrok_pos.sql;  (MariaDB 13 / MySQL compatible)
+```
+
+Tablas incluidas: `clientes`, `productos`, `facturas`, `detalle_factura`,
+`respuestas_factus`, `recaudos_pay`, `webhook_logs` (sin credenciales ni QR base64 de ventas).
+
 ## Endpoints principales
 
 | Metodo | Ruta | Funcion |

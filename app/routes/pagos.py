@@ -163,6 +163,14 @@ def register(app):
 
     @app.route("/guardar-factura", methods=["POST"])
     def guardar_factura():
+        """Ventas del POS. Soporta:
+        - EFECTIVO (monto recibido + cambio)
+        - Opcion B 'BREB' (facturacion previa: factura DIAN -> recaudo Bre-B)
+        - Opcion A 'PREVIO' (cobro previo: recaudo Bre-B -> factura DIAN al confirmar pago)
+        - CREDITO (forma de pago 2 de Factus con fecha de vencimiento)
+        """
+        from datetime import date, timedelta
+
         conexion = conectar()
         if not conexion:
             return jsonify({"success": False, "mensaje": "No se pudo conectar con MySQL."}), 500
@@ -171,10 +179,10 @@ def register(app):
             id_cliente = request.form.get("cliente")
             productos_json = request.form.get("productos_json", "[]")
             metodo_pago = (request.form.get("metodo_pago") or "EFECTIVO").strip().upper()
-            if metodo_pago not in ("EFECTIVO", "BREB", "QR", "FACTUS_PAY"):
-                metodo_pago = "EFECTIVO"
             if metodo_pago in ("QR", "FACTUS_PAY"):
                 metodo_pago = "BREB"
+            if metodo_pago not in ("EFECTIVO", "BREB", "PREVIO", "CREDITO"):
+                metodo_pago = "EFECTIVO"
 
             monto_recibido = None
             if metodo_pago == "EFECTIVO":
@@ -186,6 +194,16 @@ def register(app):
                 if monto_recibido is None or monto_recibido <= 0:
                     return jsonify({"success": False,
                                     "mensaje": "Ingresa el monto con el que paga el cliente (efectivo recibido)."}), 400
+
+            dias_credito = 30
+            if metodo_pago == "CREDITO":
+                try:
+                    dias_credito = int(request.form.get("dias_credito") or 30)
+                except ValueError:
+                    dias_credito = 30
+                if dias_credito not in (15, 30, 45, 60):
+                    dias_credito = 30
+
             try:
                 expiration = int(request.form.get("expiration") or 86400)
             except ValueError:
@@ -260,13 +278,20 @@ def register(app):
                 return jsonify({"success": False,
                                 "mensaje": (f"El monto recibido (${monto_recibido:,.2f}) no cubre el total "
                                             f"(${total:,.2f}) del comprobante.")}), 400
+            if metodo_pago in ("PREVIO", "BREB") and total < Decimal("10000"):
+                return jsonify({"success": False,
+                                "mensaje": (f"Factus Pay exige minimo $10.000 COP (total ${total:,.2f}). "
+                                            "Usa Efectivo o aumenta la venta.")}), 400
             referencia = "BEDROK-" + uuid.uuid4().hex[:12].upper()
+            pay_inicial = {"CREDITO": "CREDITO", "EFECTIVO": "EFECTIVO"}.get(metodo_pago, "SIN_QR")
+            fecha_credito = (date.today() + timedelta(days=dias_credito)) if metodo_pago == "CREDITO" else None
+            fecha_credito_iso = fecha_credito.isoformat() if fecha_credito else None
             cursor.execute("""
                 INSERT INTO facturas
                 (id_cliente, codigo_referencia, fecha_emision, subtotal, total_iva, total,
-                 estado, ambiente, metodo_pago, pay_status)
-                VALUES (%s,%s,NOW(),%s,%s,%s,'PENDIENTE','SANDBOX',%s,'SIN_QR')
-            """, (id_cliente, referencia, subtotal, total_iva, total, metodo_pago))
+                 estado, ambiente, metodo_pago, pay_status, fecha_credito)
+                VALUES (%s,%s,NOW(),%s,%s,%s,'PENDIENTE','SANDBOX',%s,%s,%s)
+            """, (id_cliente, referencia, subtotal, total_iva, total, metodo_pago, pay_inicial, fecha_credito))
             id_factura = cursor.lastrowid
             for d in detalles:
                 cursor.execute("""
@@ -293,17 +318,26 @@ def register(app):
         factus_status = None
         respuesta_factus = {}
         try:
+            if metodo_pago == "CREDITO":
+                payment_details = [{
+                    "payment_form": "2",
+                    "payment_method_code": "10",
+                    "amount": f"{total:.2f}",
+                    "due_date": fecha_credito_iso,
+                }]
+            else:
+                payment_details = [{
+                    "payment_form": "1",
+                    "payment_method_code": "10" if metodo_pago == "EFECTIVO" else "42",
+                    "amount": f"{total:.2f}",
+                }]
             payload = {
                 "reference_code": referencia,
                 "document": "01",
                 "numbering_range_id": 389,
                 "operation_type": "10",
                 "send_email": False,
-                "payment_details": [{
-                    "payment_form": "1",
-                    "payment_method_code": "10" if metodo_pago == "EFECTIVO" else "42",
-                    "amount": f"{total:.2f}",
-                }],
+                "payment_details": payment_details,
                 "customer": {
                     "identification_document_code": cliente_info["tipo_documento"],
                     "identification": cliente_info["numero_documento"],
@@ -319,41 +353,55 @@ def register(app):
                 },
                 "items": items_factus,
             }
-            factus_status, respuesta_factus = enviar_factura_a_factus(payload)
-            con2 = conectar()
-            cur2 = con2.cursor()
-            estado_api = "EXITOSO" if factus_status in (200, 201) else "ERROR"
-            mensaje_api = str((respuesta_factus or {}).get("message", "Procesado por Factus"))
-            cur2.execute("""
-                INSERT INTO respuestas_factus
-                (id_factura, codigo_referencia, codigo_http, estado_api, mensaje, solicitud_json, respuesta_json)
-                VALUES (%s,%s,%s,%s,%s,%s,%s)
-            """, (id_factura, referencia, factus_status, estado_api, mensaje_api[:500],
-                  json.dumps(payload), json.dumps(respuesta_factus)[:60000]))
-            if factus_status in (200, 201):
-                data = (respuesta_factus or {}).get("data", {})
-                bill = data.get("bill", {}) or {}
-                cufe = bill.get("cufe") or bill.get("uuid") or data.get("cufe") or data.get("uuid")
-                numf = (bill.get("number") or bill.get("document_number")
-                        or data.get("number") or data.get("document_number"))
-                links = data.get("links", {}) or {}
-                pdf_url = links.get("public_url") or links.get("qr")
-                cur2.execute(
-                    "UPDATE facturas SET estado='VALIDADA', cufe=%s, numero_factura=%s, url_pdf=%s"
-                    " WHERE id_factura=%s",
-                    (cufe, numf, pdf_url, id_factura),
-                )
-            con2.commit()
-            cur2.close()
-            con2.close()
+            if metodo_pago == "PREVIO":
+                # Opcion A: guardar el payload para emitir la DIAN cuando se confirme el pago
+                con2 = conectar()
+                cur2 = con2.cursor()
+                cur2.execute("""
+                    INSERT INTO respuestas_factus
+                    (id_factura, codigo_referencia, codigo_http, estado_api, mensaje, solicitud_json, respuesta_json)
+                    VALUES (%s,%s,0,'PEND_ENVIO','Cobro previo pendiente de pago',%s,'{}')
+                """, (id_factura, referencia, json.dumps(payload)[:60000]))
+                con2.commit()
+                cur2.close()
+                con2.close()
+                factus_status = 0
+            else:
+                factus_status, respuesta_factus = enviar_factura_a_factus(payload)
+                con2 = conectar()
+                cur2 = con2.cursor()
+                estado_api = "EXITOSO" if factus_status in (200, 201) else "ERROR"
+                mensaje_api = str((respuesta_factus or {}).get("message", "Procesado por Factus"))
+                cur2.execute("""
+                    INSERT INTO respuestas_factus
+                    (id_factura, codigo_referencia, codigo_http, estado_api, mensaje, solicitud_json, respuesta_json)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s)
+                """, (id_factura, referencia, factus_status, estado_api, mensaje_api[:500],
+                      json.dumps(payload), json.dumps(respuesta_factus)[:60000]))
+                if factus_status in (200, 201):
+                    data = (respuesta_factus or {}).get("data", {})
+                    bill = data.get("bill", {}) or {}
+                    cufe = bill.get("cufe") or bill.get("uuid") or data.get("cufe") or data.get("uuid")
+                    numf = (bill.get("number") or bill.get("document_number")
+                            or data.get("number") or data.get("document_number"))
+                    links = data.get("links", {}) or {}
+                    pdf_url = links.get("public_url") or links.get("qr")
+                    cur2.execute(
+                        "UPDATE facturas SET estado='VALIDADA', cufe=%s, numero_factura=%s, url_pdf=%s"
+                        " WHERE id_factura=%s",
+                        (cufe, numf, pdf_url, id_factura),
+                    )
+                con2.commit()
+                cur2.close()
+                con2.close()
         except Exception as e:
             print("Factus:", e)
             factus_status = factus_status or 500
             respuesta_factus = respuesta_factus or {"message": str(e)}
 
-        # ---- FACTUS PAY (QR Bre-B) ----
+        # ---- FACTUS PAY (QR Bre-B): Opciones A y B ----
         pay_info = {"status": "no_aplica", "qr": None, "breb_key": None, "qr_expires_at": None}
-        if metodo_pago == "BREB":
+        if metodo_pago in ("BREB", "PREVIO"):
             try:
                 http_pay, json_pay = crear_recaudo(referencia, float(total), expiration)
                 norm = guardar_recaudo_db(id_factura, referencia, float(total), http_pay, json_pay)
@@ -363,164 +411,28 @@ def register(app):
             except Exception as e:
                 print("Factus Pay:", e)
                 pay_info = {"status": "error", "qr": None, "mensaje": str(e)}
+
+        if metodo_pago == "PREVIO":
+            mensaje = "Recaudo Bre-B creado. La factura DIAN se emite sola al confirmar el pago."
+        elif metodo_pago == "CREDITO":
+            mensaje = f"Venta a credito {dias_credito} dias (vence {fecha_credito_iso})."
+        elif pay_info.get("qr"):
+            mensaje = "Venta POS registrada con QR Bre-B."
         else:
-            try:
-                c = conectar()
-                cc = c.cursor()
-                cc.execute("UPDATE facturas SET pay_status='EFECTIVO' WHERE id_factura=%s", (id_factura,))
-                c.commit()
-                cc.close()
-                c.close()
-            except Exception:
-                pass
+            mensaje = "Venta POS registrada."
 
         return jsonify({
             "success": True,
-            "mensaje": "Venta POS registrada." + (" QR Bre-B generado." if pay_info.get("qr") else ""),
+            "flujo": "A" if metodo_pago == "PREVIO" else ("CREDITO" if metodo_pago == "CREDITO" else None),
+            "dias_credito": dias_credito if metodo_pago == "CREDITO" else None,
+            "fecha_credito": fecha_credito_iso if metodo_pago == "CREDITO" else None,
+            "mensaje": mensaje,
             "id_factura": id_factura,
             "referencia": referencia,
             "total": float(total),
             "metodo_pago": metodo_pago,
             "factus_status": factus_status,
             "respuesta_factus": respuesta_factus,
-            "pay": pay_info,
-            "ticket_url": url_for("ticket", id_factura=id_factura),
-        })
-
-    @app.route("/crear-cobro-previo", methods=["POST"])
-    def crear_cobro_previo():
-        """Flujo A del reto: generar recaudo Bre-B primero; la factura DIAN se
-        emite automaticamente cuando el pago se confirma (polling o conciliacion)."""
-        conexion = conectar()
-        if not conexion:
-            return jsonify({"success": False, "mensaje": "No se pudo conectar con MySQL."}), 500
-        cursor = conexion.cursor(dictionary=True)
-        try:
-            id_cliente = request.form.get("cliente")
-            productos_json = request.form.get("productos_json", "[]")
-            try:
-                expiration = int(request.form.get("expiration") or 86400)
-            except ValueError:
-                expiration = 86400
-            expiration = max(300, min(expiration, 7 * 86400))
-
-            if not id_cliente:
-                return jsonify({"success": False, "mensaje": "Selecciona el cliente de la venta."}), 400
-            try:
-                id_cliente = int(id_cliente)
-                productos = json.loads(productos_json)
-            except (ValueError, json.JSONDecodeError):
-                return jsonify({"success": False, "mensaje": "Datos invalidos."}), 400
-            if not isinstance(productos, list) or not productos:
-                return jsonify({"success": False, "mensaje": "Agrega al menos un producto."}), 400
-
-            conexion.start_transaction()
-            cursor.execute(
-                "SELECT * FROM clientes WHERE id_cliente=%s AND activo=TRUE", (id_cliente,)
-            )
-            cliente_info = cursor.fetchone()
-            if not cliente_info:
-                raise ValueError("El cliente seleccionado no existe o esta inactivo.")
-
-            cantidades = {}
-            for item in productos:
-                if not isinstance(item, dict):
-                    raise ValueError("Producto con datos incorrectos.")
-                try:
-                    pid = int(item["id"])
-                    cant = int(item["cantidad"])
-                except (KeyError, ValueError):
-                    raise ValueError("Producto con datos incorrectos.")
-                if pid <= 0 or cant <= 0 or cant > 999:
-                    raise ValueError("Productos y cantidades deben ser positivos.")
-                cantidades[pid] = cantidades.get(pid, 0) + cant
-
-            subtotal = Decimal("0.00")
-            total_iva = Decimal("0.00")
-            detalles = []
-            items_factus = []
-            for id_producto, cantidad in cantidades.items():
-                cursor.execute(
-                    "SELECT * FROM productos WHERE id_producto=%s AND activo=TRUE FOR UPDATE",
-                    (id_producto,),
-                )
-                prod = cursor.fetchone()
-                if not prod:
-                    raise ValueError("Uno de los productos no existe o esta inactivo.")
-                if cantidad > prod["stock"]:
-                    raise ValueError(
-                        f"Stock insuficiente para {prod['nombre']}. Disponible: {prod['stock']}."
-                    )
-                precio = Decimal(str(prod["precio"]))
-                piva = Decimal(str(prod["porcentaje_iva"]))
-                base = (precio * cantidad).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-                imp = (base * piva / Decimal("100")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-                subtotal += base
-                total_iva += imp
-                detalles.append({"id_producto": id_producto, "cantidad": cantidad, "precio": precio,
-                                 "iva": piva, "valor_iva": imp, "subtotal": base, "total": base + imp})
-                items_factus.append({
-                    "code_reference": prod["codigo_referencia"],
-                    "name": prod["nombre"],
-                    "quantity": f"{cantidad:.2f}",
-                    "discount_rate": "0.00",
-                    "price": f"{precio:.2f}",
-                    "unit_measure_code": prod["codigo_unidad"] or "94",
-                    "standard_code": prod["codigo_estandar"] or "999",
-                    "taxes": [{"code": "01", "rate": f"{piva:.2f}"}],
-                })
-            total = subtotal + total_iva
-            if total < Decimal("10000"):
-                raise ValueError(
-                    f"El total (${total:,.2f}) es menor al minimo de Factus Pay ($10.000). Usa Efectivo."
-                )
-            referencia = "BEDROK-" + uuid.uuid4().hex[:12].upper()
-            payload_factus = _armar_payload_factus(referencia, cliente_info, items_factus, total, "BREB")
-            cursor.execute("""
-                INSERT INTO facturas
-                (id_cliente, codigo_referencia, fecha_emision, subtotal, total_iva, total,
-                 estado, ambiente, metodo_pago, pay_status)
-                VALUES (%s,%s,NOW(),%s,%s,%s,'COBRO_PREVIO','SANDBOX','BREB','SIN_QR')
-            """, (id_cliente, referencia, subtotal, total_iva, total))
-            id_factura = cursor.lastrowid
-            for d in detalles:
-                cursor.execute("""
-                    INSERT INTO detalle_factura
-                    (id_factura, id_producto, cantidad, precio_unitario, porcentaje_iva, valor_iva, subtotal, total)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-                """, (id_factura, d["id_producto"], d["cantidad"], d["precio"], d["iva"],
-                      d["valor_iva"], d["subtotal"], d["total"]))
-            cursor.execute("""
-                INSERT INTO respuestas_factus
-                (id_factura, codigo_referencia, codigo_http, estado_api, mensaje, solicitud_json, respuesta_json)
-                VALUES (%s,%s,0,'PEND_ENVIO','Cobro previo pendiente de pago',%s,'{}')
-            """, (id_factura, referencia, json.dumps(payload_factus)[:60000]))
-            conexion.commit()
-        except ValueError as error:
-            conexion.rollback()
-            return jsonify({"success": False, "mensaje": str(error)}), 400
-        except (mysql.connector.Error, KeyError, TypeError, InvalidOperation) as error:
-            conexion.rollback()
-            print("crear_cobro_previo BD:", error)
-            return jsonify({"success": False, "mensaje": "Ocurrio un error al crear el recaudo."}), 500
-        finally:
-            cursor.close()
-            conexion.close()
-
-        http_pay, json_pay = crear_recaudo(referencia, float(total), expiration)
-        norm = guardar_recaudo_db(id_factura, referencia, float(total), http_pay, json_pay)
-        pay_info = {"status": norm["status"], "qr": norm["qr"], "breb_key": norm["breb_key"],
-                    "qr_expires_at": norm["qr_expires_at"], "http": http_pay,
-                    "raw_message": (json_pay or {}).get("message")}
-        return jsonify({
-            "success": True,
-            "flujo": "A",
-            "mensaje": ("Recaudo Bre-B creado. La factura DIAN se emite sola al confirmar el pago."
-                        if pay_info.get("qr") else (json_pay or {}).get("message", "Recaudo no creado.")),
-            "id_factura": id_factura,
-            "referencia": referencia,
-            "total": float(total),
-            "metodo_pago": "BREB",
             "pay": pay_info,
             "ticket_url": url_for("ticket", id_factura=id_factura),
         })

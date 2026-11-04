@@ -36,9 +36,10 @@ ok("Barra de progreso + texto de segundos esperando", "showProgress" in ui and "
 # 2. Flujo A completo end-to-end (recaudo -> pago simulado -> factura emitida)
 print()
 print("-- FLUJO A (cobro previo) --")
-r = s.post(B + "/crear-cobro-previo", data={
+r = s.post(B + "/guardar-factura", data={
     "cliente": "1",
     "productos_json": json.dumps([{"id": "2", "cantidad": 3}]),
+    "metodo_pago": "PREVIO",
     "expiration": "900",
 }, timeout=120)
 j = r.json()

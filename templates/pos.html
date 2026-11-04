@@ -104,13 +104,23 @@
                         <h2><span>Total</span><strong>$<span id="total">0.00</span></strong></h2>
                     </div>
                     <div class="field" style="margin-top:10px">
-                        <label>Metodo de cobro / flujo</label>
+                        <label>Metodo de cobro</label>
                         <div class="pay-opts">
                             <label><input type="radio" name="metodo" value="EFECTIVO" checked> <svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-cash"></use></svg> Efectivo</label>
-                            <label><input type="radio" name="metodo" value="BREB"> <svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-qr"></use></svg> QR Bre-B (flujo B)</label>
-                            <label><input type="radio" name="metodo" value="PREVIO"> <svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-globe"></use></svg> Cobro previo (flujo A)</label>
+                            <label><input type="radio" name="metodo" value="PREVIO"> <svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-qr"></use></svg> Opcion A - Cobro previo</label>
+                            <label><input type="radio" name="metodo" value="BREB"> <svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-qr"></use></svg> Opcion B - Facturacion previa</label>
+                            <label><input type="radio" name="metodo" value="CREDITO"> <svg class="icon"><use href="{{ url_for('static', filename='img/icons.svg') }}#i-cash"></use></svg> Credito</label>
                         </div>
-                        <p class="hint">Flujo A: recaudo primero y la factura DIAN se emite sola al confirmar el pago. Flujo B: factura primero y luego se crea el QR.</p>
+                    </div>
+                    <div class="field" id="creditWrap" style="display:none">
+                        <label for="dias_credito">Plazo de credito</label>
+                        <select id="dias_credito">
+                            <option value="15">15 dias</option>
+                            <option value="30" selected>30 dias</option>
+                            <option value="45">45 dias</option>
+                            <option value="60">60 dias</option>
+                        </select>
+                        <p class="hint">Factura DIAN con forma de pago 2 y fecha de vencimiento ante Factus.</p>
                     </div>
                     <div class="field" id="cashWrap">
                         <label for="monto_recibido">Efectivo recibido</label>

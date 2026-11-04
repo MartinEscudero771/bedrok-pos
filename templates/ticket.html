@@ -59,7 +59,7 @@
     <div><span class="b">Factura DIAN:</span> {{ factura.numero_factura or 'Pendiente' }}</div>
     <div><span class="b">Fecha:</span> {{ factura.fecha_emision }}</div>
     <div><span class="b">Cliente:</span> {{ factura.cliente_nombre }} ({{ factura.tipo_documento }} {{ factura.numero_documento }})</div>
-    <div><span class="b">Metodo:</span> {{ factura.metodo_pago or 'EFECTIVO' }}{% if factura.pay_status and factura.pay_status not in ['SIN_QR'] %} - {{ factura.pay_status }}{% endif %}</div>
+    <div><span class="b">Metodo:</span> {{ factura.metodo_pago or 'EFECTIVO' }}{% if factura.pay_status and factura.pay_status not in ['SIN_QR'] %} - {{ factura.pay_status }}{% endif %}{% if factura.fecha_credito %} - VENCE {{ factura.fecha_credito }}{% endif %}</div>
     {% if factura.moneda == 'USD' %}
     <div><span class="b">Doble moneda:</span> USD/COP @ {{ factura.tasa_cambio|num }}</div>
     <div><span class="b">Entregado:</span> US$ {{ factura.monto_moneda|usd }} - <span class="b">Cambio:</span> US$ {{ factura.cambio_moneda|usd }}</div>

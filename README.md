@@ -52,6 +52,7 @@ flowchart LR
 - **Factus Pay**: creación de recaudos (Link/QR/Llave Bre-B), expiración configurable,
   **webhook seguro con llave y comparacion de tiempo constante**, e **idempotencia** (no se degrada un pago confirmado).
 - **Ticket termico 80mm**: vista imprimible con QR de pago Bre-B y **QR + link de verificacion oficial**.
+- **Credito con Factus**: venta a credito con forma de pago 2 y fecha de vencimiento (15/30/45/60 dias) validada por la DIAN.
 - **Pedidos internacionales**: cotizacion COP, cobro en **USD** con tasa de cambio **en vivo** de API publica
   (fallback gratis incluido), cambio en USD y equivalencia en COP, y factura DIAN en **doble moneda**
   (`currency.type=USD` + `exchange_rate`).
@@ -110,8 +111,8 @@ python run.py
 
 | Metodo | Ruta | Funcion |
 |---|---|---|
-| POST | `/guardar-factura` | Flujo B: valida y envia la factura a Factus, crea recaudo Bre-B con la referencia |
-| POST | `/crear-cobro-previo` | Flujo A: crea recaudo Bre-B y deja lista la emision automatica al confirmar pago |
+| POST | `/guardar-factura` | Ruta unica: EFECTIVO, Opcion A (PREVIO), Opcion B (BREB) y CREDITO (forma de pago 2 + vencimiento DIAN) |
+| POST | `/guardar-factura` (metodo PREVIO) | Flujo A: crea recaudo Bre-B y deja lista la emision automatica al confirmar pago |
 | GET  | `/api/recaudo/:ref` | Estado del recaudo (emitido manualmente tambien emite factura pendiente de Flujo A) |
 | POST | `/webhooks/factus-pay?key=LLAVE` | Webhook oficial de pagos Bre-B (resp 2xx en <10s) |
 | GET  | `/api/conciliacion` · POST `/api/conciliar` | Panel de operacion del dia y conciliacion manual |

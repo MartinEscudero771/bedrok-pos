@@ -145,6 +145,7 @@ def init_db():
             "ALTER TABLE facturas ADD COLUMN IF NOT EXISTS tasa_cambio DECIMAL(13,4) NULL",
             "ALTER TABLE facturas ADD COLUMN IF NOT EXISTS monto_moneda DECIMAL(14,2) NULL",
             "ALTER TABLE facturas ADD COLUMN IF NOT EXISTS cambio_moneda DECIMAL(14,2) NULL",
+            "ALTER TABLE facturas ADD COLUMN IF NOT EXISTS fecha_credito DATE NULL",
             "ALTER TABLE productos ADD COLUMN IF NOT EXISTS codigo_unidad VARCHAR(10) DEFAULT '94'",
             "ALTER TABLE productos ADD COLUMN IF NOT EXISTS codigo_estandar VARCHAR(10) DEFAULT '999'",
             "ALTER TABLE clientes ADD COLUMN IF NOT EXISTS codigo_organizacion VARCHAR(5) DEFAULT '2'",

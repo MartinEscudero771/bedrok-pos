@@ -98,12 +98,13 @@
         actualizarCambio(t.total);
     }
 
-    /* ---- Metodos de pago: efectivo con cambio / Bre-B (A y B) con vigencia ---- */
+    /* ---- Metodos de pago: efectivo, Opcion A/B Bre-B y credito ---- */
     document.querySelectorAll('input[name="metodo"]').forEach(function (r) {
         r.addEventListener("change", function () {
             const metodo = document.querySelector('input[name="metodo"]:checked').value;
-            $id("expWrap").style.display = metodo === "BREB" || metodo === "PREVIO" ? "" : "none";
+            $id("expWrap").style.display = (metodo === "BREB" || metodo === "PREVIO") ? "" : "none";
             $id("cashWrap").style.display = metodo === "EFECTIVO" ? "" : "none";
+            $id("creditWrap").style.display = metodo === "CREDITO" ? "" : "none";
             actualizarCambio(totales().total);
         });
     });
@@ -134,7 +135,7 @@
         actualizarCambio(totales().total);
     });
 
-    /* ---- Cobrar: flujo B (factura->QR), flujo A (QR->factura al confirmar) o efectivo ---- */
+    /* ---- Cobrar: Opcion A (cobro previo), Opcion B (facturacion previa), efectivo y credito ---- */
     window.cobrarPOS = async function () {
         const cliente = $id("cliente").value;
         const metodo = document.querySelector('input[name="metodo"]:checked').value;
@@ -156,24 +157,24 @@
             }
             cambio = ingresado - total;
         }
-        if (metodo !== "EFECTIVO" && total < 10000) {
+        if ((metodo === "PREVIO" || metodo === "BREB") && total < 10000) {
             showNotice("Factus Pay exige minimo $" + formatCOP(10000) + " para el QR Bre-B. Usa Efectivo.", "error");
             return;
         }
         const fd = new FormData();
         fd.append("cliente", cliente);
         fd.append("productos_json", JSON.stringify(carrito));
-        fd.append("metodo_pago", metodo === "PREVIO" ? "PREVIO" : metodo);
+        fd.append("metodo_pago", metodo);
         fd.append("expiration", $id("expiration").value);
         if (metodo === "EFECTIVO") fd.append("monto_recibido", $id("monto_recibido").value);
+        if (metodo === "CREDITO") fd.append("dias_credito", $id("dias_credito").value);
         try {
             if (metodo === "PREVIO") {
                 showProgress("Generando recaudo Bre-B (cobro previo)...", 3);
             } else {
                 showProgress("Emitiendo factura electronica DIAN", 3);
             }
-            const endpoint = metodo === "PREVIO" ? "/crear-cobro-previo" : "/guardar-factura";
-            const r = await fetch(endpoint, { method: "POST", body: fd });
+            const r = await fetch("/guardar-factura", { method: "POST", body: fd });
             const j = await r.json();
             hideLoading();
             if (!r.ok || !j.success) { showNotice(j.mensaje || "Error al facturar.", "error"); return; }
